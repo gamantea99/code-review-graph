@@ -178,9 +178,11 @@ def get_data_dir(repo_root: Path) -> Path:
     """Return the directory where this project's graph data lives.
 
     By default, ``<repo_root>/.code-review-graph``. If the
-    ``CRG_DATA_DIR`` environment variable is set, it is used verbatim
-    instead — letting you keep graphs outside the working tree (useful
-    for ephemeral workspaces, Docker volumes, or shared caches). See: #155
+    ``CRG_DATA_DIR`` environment variable is set, a per-repo
+    subdirectory is created underneath it using the repo directory
+    name — e.g. ``CRG_DATA_DIR/my-project/graph.db``. This keeps
+    graphs outside the working tree (useful for centralised workspaces,
+    Docker volumes, or shared caches). See: #155
 
     The directory is created if it does not already exist; an inner
     ``.gitignore`` (with ``*``) is written so any accidentally-nested
@@ -188,7 +190,7 @@ def get_data_dir(repo_root: Path) -> Path:
     """
     env_override = os.environ.get("CRG_DATA_DIR", "").strip()
     if env_override:
-        data_dir = Path(env_override).expanduser().resolve()
+        data_dir = Path(env_override).expanduser().resolve() / repo_root.name
     else:
         data_dir = repo_root / ".code-review-graph"
 
@@ -269,10 +271,29 @@ def ensure_repo_gitignore_excludes_crg(repo_root: Path) -> str:
 
 
 def _load_ignore_patterns(repo_root: Path) -> list[str]:
-    """Load ignore patterns from .code-review-graphignore file."""
+    """Load ignore patterns from .code-review-graphignore file.
+
+    Resolution order:
+    1. ``CRG_IGNORE_DIR/<repo_dir_name>.code-review-graphignore`` (centralized)
+    2. ``<repo_root>/.code-review-graphignore`` (repo-local, original behaviour)
+    """
     patterns = list(DEFAULT_IGNORE_PATTERNS)
-    ignore_file = repo_root / ".code-review-graphignore"
-    if ignore_file.exists():
+
+    ignore_file = None
+    # Check centralized ignore directory first (CRG_IGNORE_DIR)
+    ignore_dir = os.environ.get("CRG_IGNORE_DIR")
+    if ignore_dir:
+        central_file = Path(ignore_dir) / f"{repo_root.name}.code-review-graphignore"
+        if central_file.exists():
+            ignore_file = central_file
+
+    # Fall back to repo-local ignore file
+    if ignore_file is None:
+        local_file = repo_root / ".code-review-graphignore"
+        if local_file.exists():
+            ignore_file = local_file
+
+    if ignore_file is not None:
         for line in ignore_file.read_text(encoding="utf-8", errors="replace").splitlines():
             line = line.strip()
             if line and not line.startswith("#"):

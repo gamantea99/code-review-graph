@@ -125,6 +125,9 @@ EXTENSION_TO_LANGUAGE: dict[str, str] = {
     ".res": "rescript",
     ".resi": "rescript",
     ".gd": "gdscript",
+    ".scss": "scss",
+    ".css": "css",
+    ".sass": "scss",
 }
 
 # Tree-sitter node type mappings per language
@@ -172,6 +175,8 @@ _CLASS_TYPES: dict[str, list[str]] = {
     "zig": ["container_declaration"],
     "powershell": ["class_statement"],
     "julia": ["struct_definition", "abstract_definition"],
+    "scss": [],
+    "css": [],
 }
 
 _FUNCTION_TYPES: dict[str, list[str]] = {
@@ -222,6 +227,8 @@ _FUNCTION_TYPES: dict[str, list[str]] = {
         "function_definition",
         "short_function_definition",
     ],
+    "scss": ["mixin_statement", "function_statement"],
+    "css": [],
 }
 
 _IMPORT_TYPES: dict[str, list[str]] = {
@@ -262,6 +269,8 @@ _IMPORT_TYPES: dict[str, list[str]] = {
     "powershell": [],
     # Julia: import/using are import_statement nodes.
     "julia": ["import_statement", "using_statement"],
+    "scss": ["use_statement", "import_statement"],
+    "css": ["import_statement"],
 }
 
 _CALL_TYPES: dict[str, list[str]] = {
@@ -300,9 +309,9 @@ _CALL_TYPES: dict[str, list[str]] = {
     "zig": ["call_expression", "builtin_call_expr"],
     "powershell": ["command_expression"],
     "julia": ["call_expression"],
+    "scss": ["include_statement", "call_expression"],
+    "css": [],
 }
-
-# Patterns that indicate a test function
 _TEST_PATTERNS = [
     re.compile(r"^test_"),
     re.compile(r"^Test"),
@@ -1797,6 +1806,17 @@ class CodeParser:
                 ):
                     continue
 
+            # --- SCSS/CSS-specific constructs ---
+            # Variable declarations ($var: value) are ``declaration`` nodes
+            # whose property_name starts with ``$``. These are not caught
+            # by the generic function/class extractors.
+            if language in ("scss", "css") and node_type == "declaration":
+                if self._is_scss_variable(child, source):
+                    self._extract_scss_variable(
+                        child, source, file_path, nodes, edges, enclosing_class,
+                    )
+                    continue
+
             # --- Dart call detection (see #87) ---
             # tree-sitter-dart does not wrap calls in a single
             # ``call_expression`` node; instead the pattern is
@@ -2126,6 +2146,58 @@ class CodeParser:
                     _depth=_depth + 1,
                 )
         return True
+
+    # ------------------------------------------------------------------
+    # SCSS/CSS helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _is_scss_variable(node, source: bytes) -> bool:
+        """Return True if *node* is a SCSS variable declaration (``$var: value``)."""
+        for child in node.children:
+            if child.type == "property_name":
+                text = child.text.decode("utf-8", errors="replace")
+                return text.startswith("$")
+        return False
+
+    def _extract_scss_variable(
+        self,
+        node,
+        source: bytes,
+        file_path: str,
+        nodes: list[NodeInfo],
+        edges: list[EdgeInfo],
+        enclosing_class: Optional[str],
+    ) -> None:
+        """Extract a SCSS ``$variable: value`` declaration as a Variable node."""
+        name: Optional[str] = None
+        for child in node.children:
+            if child.type == "property_name":
+                name = child.text.decode("utf-8", errors="replace")
+                break
+        if not name:
+            return
+        qn = (
+            f"{file_path}::{enclosing_class}.{name}"
+            if enclosing_class
+            else f"{file_path}::{name}"
+        )
+        nodes.append(NodeInfo(
+            kind="Variable",
+            name=name,
+            file_path=file_path,
+            line_start=node.start_point[0] + 1,
+            line_end=node.end_point[0] + 1,
+            language="scss",
+        ))
+        container = enclosing_class or file_path
+        edges.append(EdgeInfo(
+            kind="CONTAINS",
+            source=container,
+            target=qn,
+            file_path=file_path,
+            line=node.start_point[0] + 1,
+        ))
 
     def _extract_bash_source_command(
         self,
@@ -4295,6 +4367,13 @@ class CodeParser:
             val = _find_string_literal(node)
             if val:
                 imports.append(val)
+        elif language in ("scss", "css"):
+            # @use "path" as namespace  /  @import "path"
+            for child in node.children:
+                if child.type in ("string_value", "string"):
+                    val = child.text.decode("utf-8", errors="replace").strip("'\"")
+                    if val:
+                        imports.append(val)
         else:
             # Fallback: just record the text
             imports.append(text)
@@ -4352,6 +4431,22 @@ class CodeParser:
                 if child.type == "method":
                     return child.text.decode("utf-8", errors="replace")
             return None  # method child not found
+
+        # SCSS: @include namespace.mixin(args) — the mixin name may be
+        # dotted (``typography.text-style``) and appears as child nodes.
+        if language == "scss" and node.type == "include_statement":
+            parts: list[str] = []
+            for child in node.children:
+                if child.type in ("identifier", "plain_value", "function_name"):
+                    parts.append(child.text.decode("utf-8", errors="replace"))
+                elif child.type == "arguments":
+                    break  # stop before argument list
+            if parts:
+                return ".".join(parts)
+            # fallback: full text minus @include keyword
+            text = node.text.decode("utf-8", errors="replace")
+            name_part = text.replace("@include", "").strip().split("(")[0].strip()
+            return name_part or None
 
         # Simple call: func_name(args)
         # Kotlin uses "simple_identifier" instead of "identifier".
