@@ -19,6 +19,7 @@ def _has_git_changes(root: Path, base: str) -> bool:
         result = subprocess.run(
             ["git", "diff", "--name-only", base, "--"],
             capture_output=True, text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(root), timeout=10,
         )
         if result.returncode == 0 and result.stdout.strip():
@@ -27,6 +28,7 @@ def _has_git_changes(root: Path, base: str) -> bool:
         result2 = subprocess.run(
             ["git", "status", "--porcelain"],
             capture_output=True, text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(root), timeout=10,
         )
         return bool(result2.stdout.strip())

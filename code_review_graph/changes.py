@@ -54,6 +54,7 @@ def parse_git_diff_ranges(
             text=True,
             encoding="utf-8",
             errors="replace",
+            stdin=subprocess.DEVNULL,
             cwd=repo_root,
             timeout=_GIT_TIMEOUT,
         )
@@ -95,6 +96,7 @@ def parse_svn_diff_ranges(
             text=True,
             encoding="utf-8",
             errors="replace",
+            stdin=subprocess.DEVNULL,
             cwd=repo_root,
             timeout=_GIT_TIMEOUT,
         )

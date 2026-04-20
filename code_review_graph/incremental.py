@@ -355,6 +355,7 @@ def _git_branch_info(repo_root: Path) -> tuple[str, str]:
             ["git", "rev-parse", "--abbrev-ref", "HEAD"],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
         )
@@ -367,6 +368,7 @@ def _git_branch_info(repo_root: Path) -> tuple[str, str]:
             ["git", "rev-parse", "HEAD"],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
         )
@@ -385,6 +387,7 @@ def _svn_revision_info(repo_root: Path) -> tuple[str, str]:
         result = subprocess.run(
             ["svn", "info", "--non-interactive"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root), timeout=_GIT_TIMEOUT,
         )
         if result.returncode == 0:
@@ -446,6 +449,7 @@ def get_changed_files(repo_root: Path, base: str = "HEAD~1") -> list[str]:
             ["git", "diff", "--name-only", base, "--"],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
         )
@@ -455,6 +459,7 @@ def get_changed_files(repo_root: Path, base: str = "HEAD~1") -> list[str]:
                 ["git", "diff", "--name-only", "--cached"],
                 capture_output=True,
                 text=True,
+                stdin=subprocess.DEVNULL,
                 cwd=str(repo_root),
                 timeout=_GIT_TIMEOUT,
             )
@@ -476,6 +481,7 @@ def _get_svn_changed_files(repo_root: Path, rev_range: str | None = None) -> lis
             result = subprocess.run(
                 ["svn", "diff", "--summarize", "--non-interactive", "-r", rev_range],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
+                stdin=subprocess.DEVNULL,
                 cwd=str(repo_root), timeout=_GIT_TIMEOUT,
             )
             if result.returncode != 0:
@@ -492,6 +498,7 @@ def _get_svn_changed_files(repo_root: Path, rev_range: str | None = None) -> lis
             result = subprocess.run(
                 ["svn", "status", "--non-interactive"],
                 capture_output=True, text=True, encoding="utf-8", errors="replace",
+                stdin=subprocess.DEVNULL,
                 cwd=str(repo_root), timeout=_GIT_TIMEOUT,
             )
             files = []
@@ -518,6 +525,7 @@ def get_staged_and_unstaged(repo_root: Path) -> list[str]:
             ["git", "status", "--porcelain"],
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
         )
@@ -563,6 +571,7 @@ def get_all_tracked_files(
             cmd,
             capture_output=True,
             text=True,
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root),
             timeout=_GIT_TIMEOUT,
         )
@@ -581,6 +590,7 @@ def _get_svn_all_tracked_files(repo_root: Path) -> list[str]:
         result = subprocess.run(
             ["svn", "list", "--recursive", "--non-interactive"],
             capture_output=True, text=True, encoding="utf-8", errors="replace",
+            stdin=subprocess.DEVNULL,
             cwd=str(repo_root), timeout=60,  # svn list queries the server
         )
         if result.returncode == 0:

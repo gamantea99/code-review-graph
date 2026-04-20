@@ -157,8 +157,8 @@ async def run_postprocess_tool(
 @mcp.tool()
 def get_minimal_context_tool(
     task: str = "",
-    changed_files: Optional[list[str]] = None,
-    repo_root: Optional[str] = None,
+    changed_files: list[str] | None = None,
+    repo_root: str | None = None,
     base: str = "HEAD~1",
 ) -> dict:
     """Get ultra-compact context for any task (~100 tokens). Always call this first.
@@ -174,16 +174,16 @@ def get_minimal_context_tool(
         base: Git ref for diff comparison. Default: HEAD~1.
     """
     return get_minimal_context(
-        task=task, changed_files=changed_files,
+        task=task, changed_files=changed_files or None,
         repo_root=_resolve_repo_root(repo_root), base=base,
     )
 
 
 @mcp.tool()
 def get_impact_radius_tool(
-    changed_files: Optional[list[str]] = None,
+    changed_files: list[str] | None = None,
     max_depth: int = 2,
-    repo_root: Optional[str] = None,
+    repo_root: str | None = None,
     base: str = "HEAD~1",
     detail_level: str = "standard",
 ) -> dict:
@@ -200,7 +200,7 @@ def get_impact_radius_tool(
         detail_level: "standard" for full output, "minimal" for compact summary. Default: standard.
     """
     return get_impact_radius(
-        changed_files=changed_files, max_depth=max_depth,
+        changed_files=changed_files or None, max_depth=max_depth,
         repo_root=_resolve_repo_root(repo_root), base=base, detail_level=detail_level,
     )
 
@@ -238,11 +238,11 @@ def query_graph_tool(
 
 @mcp.tool()
 def get_review_context_tool(
-    changed_files: Optional[list[str]] = None,
+    changed_files: list[str] | None = None,
     max_depth: int = 2,
     include_source: bool = True,
     max_lines_per_file: int = 200,
-    repo_root: Optional[str] = None,
+    repo_root: str | None = None,
     base: str = "HEAD~1",
     detail_level: str = "standard",
 ) -> dict:
@@ -262,7 +262,7 @@ def get_review_context_tool(
             token-efficient summary. Default: standard.
     """
     return get_review_context(
-        changed_files=changed_files, max_depth=max_depth,
+        changed_files=changed_files or None, max_depth=max_depth,
         include_source=include_source, max_lines_per_file=max_lines_per_file,
         repo_root=_resolve_repo_root(repo_root), base=base, detail_level=detail_level,
     )
@@ -463,9 +463,9 @@ def get_flow_tool(
 
 @mcp.tool()
 def get_affected_flows_tool(
-    changed_files: Optional[list[str]] = None,
+    changed_files: list[str] | None = None,
     base: str = "HEAD~1",
-    repo_root: Optional[str] = None,
+    repo_root: str | None = None,
 ) -> dict:
     """Find execution flows affected by changed files.
 
@@ -479,7 +479,7 @@ def get_affected_flows_tool(
         repo_root: Repository root path. Auto-detected if omitted.
     """
     return get_affected_flows_func(
-        changed_files=changed_files, base=base, repo_root=_resolve_repo_root(repo_root),
+        changed_files=changed_files or None, base=base, repo_root=_resolve_repo_root(repo_root),
     )
 
 
@@ -556,10 +556,10 @@ def get_architecture_overview_tool(
 @mcp.tool()
 async def detect_changes_tool(
     base: str = "HEAD~1",
-    changed_files: Optional[list[str]] = None,
+    changed_files: list[str] | None = None,
     include_source: bool = False,
     max_depth: int = 2,
-    repo_root: Optional[str] = None,
+    repo_root: str | None = None,
     detail_level: str = "standard",
 ) -> dict:
     """Detect changes and produce risk-scored, priority-ordered review guidance.
@@ -583,7 +583,7 @@ async def detect_changes_tool(
     """
     return await asyncio.to_thread(
         detect_changes_func,
-        base=base, changed_files=changed_files,
+        base=base, changed_files=changed_files or None,
         include_source=include_source, max_depth=max_depth,
         repo_root=_resolve_repo_root(repo_root), detail_level=detail_level,
     )
