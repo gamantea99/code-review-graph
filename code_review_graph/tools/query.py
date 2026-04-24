@@ -356,6 +356,7 @@ def semantic_search_nodes(
     limit: int = 20,
     repo_root: str | None = None,
     context_files: list[str] | None = None,
+    file_path_pattern: str | None = None,
     model: str | None = None,
     provider: str | None = None,
     detail_level: str = "standard",
@@ -373,6 +374,7 @@ def semantic_search_nodes(
         repo_root: Repository root path. Auto-detected if omitted.
         context_files: Optional list of file paths. Nodes in these files
             receive a relevance boost.
+        file_path_pattern: Optional file path substring filter (e.g. "Controllers/").
         detail_level: "standard" (full output) or "minimal" (summary only).
 
     Returns:
@@ -382,7 +384,7 @@ def semantic_search_nodes(
     try:
         results = hybrid_search(
             store, query, kind=kind, limit=limit, context_files=context_files,
-            model=model, provider=provider,
+            file_path_pattern=file_path_pattern, model=model, provider=provider,
         )
 
         search_mode = "hybrid"
@@ -391,6 +393,8 @@ def semantic_search_nodes(
 
         summary = f"Found {len(results)} node(s) matching '{query}'" + (
             f" (kind={kind})" if kind else ""
+        ) + (
+            f" in '{file_path_pattern}'" if file_path_pattern else ""
         )
 
         if detail_level == "minimal":

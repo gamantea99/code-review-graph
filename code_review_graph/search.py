@@ -275,6 +275,7 @@ def hybrid_search(
     kind: Optional[str] = None,
     limit: int = 20,
     context_files: Optional[list[str]] = None,
+    file_path_pattern: Optional[str] = None,
     model: Optional[str] = None,
     provider: Optional[str] = None,
 ) -> list[dict[str, Any]]:
@@ -290,6 +291,7 @@ def hybrid_search(
         limit: Maximum results to return (default 20).
         context_files: Optional list of file paths. Nodes in these files
             receive a 1.5x score boost.
+        file_path_pattern: Optional file path substring filter (e.g. "Controllers/").
 
     Returns:
         List of dicts with node metadata and ``score`` field.
@@ -389,11 +391,15 @@ def hybrid_search(
         if kind and node_kind != kind:
             continue
 
+        file_path = row["file_path"]
+        if file_path_pattern and file_path_pattern not in file_path:
+            continue
+
         results.append({
             "name": _sanitize_name(row["name"]),
             "qualified_name": _sanitize_name(row["qualified_name"]),
             "kind": node_kind,
-            "file_path": row["file_path"],
+            "file_path": file_path,
             "line_start": row["line_start"],
             "line_end": row["line_end"],
             "language": row["language"] or "",
